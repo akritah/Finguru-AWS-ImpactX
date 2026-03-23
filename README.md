@@ -1,280 +1,183 @@
-# FinGuru - AI Financial Assistant for Indian MSMEs
+# FinGuru: AI Expense Copilot for Indian MSMEs
 
-## OpenAI Academy × NxtWave Buildathon Submission
+FinGuru is a production-style ML system that converts unstructured expense inputs (receipt photos + Hinglish voice notes) into auditable ledger entries with GST reasoning and confidence-gated human review.
 
-FinGuru is a **spec-driven, human-in-the-loop GenAI system** that helps small business owners in India manage their expenses through receipt scanning and voice input in Hinglish.
+It is intentionally designed as a constrained reasoning pipeline, not a free-form chatbot.
 
-> **This is NOT a chatbot.** GPT-4.1 is used as a constrained reasoning engine with structured outputs, confidence scoring, and mandatory human oversight.
+## Recruiter Snapshot (10-Second Read)
 
----
+- Built an end-to-end AI finance workflow with FastAPI + React + AWS services.
+- Implemented multimodal ingestion: receipt OCR and voice transcription.
+- Added spec-driven classification with schema-constrained LLM outputs.
+- Engineered confidence-based human-in-the-loop controls for safer automation.
+- Exposed explainable outputs: category decision, GST logic, and confirmation triggers.
 
-## 🎯 Why This Approach?
+## Why This Project Matters
 
-### Why GPT-4.1 (Not a Chatbot)
-Traditional chatbots let AI "decide everything" with free-form responses. FinGuru takes a different approach:
+Small businesses often track expenses in ad-hoc ways, causing:
 
-| Chatbot Approach ❌ | FinGuru Approach ✅ |
-|---------------------|---------------------|
-| "Hey AI, categorize this" | AI applies explicit accounting specs |
-| Free-form text output | Strict JSON schema enforcement |
-| AI guesses silently | Confidence scores trigger human review |
-| Hidden reasoning | Every decision is explainable |
-| No constraints | Spec-driven, auditable logic |
+- poor bookkeeping quality,
+- delayed GST visibility,
+- high manual effort to reconcile receipts and voice notes.
 
-### Why Human-in-the-Loop
-```
-IF confidence < 0.85:
-    → Ask user to confirm
-    → Show explanation
-    → Never auto-commit
-```
+FinGuru addresses this with a system that turns raw evidence into structured accounting entries while preserving explainability and control.
 
-This builds trust in regulated domains like accounting.
+## Product Capabilities
 
----
+- Receipt upload pipeline (image -> OCR -> structured expense entry)
+- Voice pipeline for Hinglish expense logging (audio/text -> parsed entry)
+- Explainability fields for each decision (rule applied + GST reasoning)
+- Confidence thresholding with explicit confirmation flow
+- Ledger APIs for retrieval, summary, category analytics, and corrections
+- Advisor endpoint for higher-level spend insights
 
-## 🏗️ Architecture
+## Technical Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    React Frontend                            │
-│              (Clean fintech UI, no chatbot)                 │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ REST API
-┌─────────────────────▼───────────────────────────────────────┐
-│                 FastAPI Backend                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Perception  │  │  Reasoning  │  │    Validation       │  │
-│  │   Layer     │  │   Layer     │  │      Layer          │  │
-│  │ (OCR/STT)   │  │  (GPT-4.1)  │  │  (Rules+Confidence) │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-└─────────┼────────────────┼────────────────────┼─────────────┘
-          │                │                    │
-┌─────────▼────────┐ ┌─────▼──────┐    ┌───────▼───────┐
-│  Amazon Textract │ │  GPT-4.1   │    │   Accounting  │
-│  (Receipt OCR)   │ │ Structured │    │     Specs     │
-│                  │ │   Output   │    │   (YAML)      │
-│  Local Whisper   │ │            │    │               │
-│  (Voice STT)     │ │            │    │               │
-└──────────────────┘ └────────────┘    └───────────────┘
+```text
+Frontend (React + Vite)
+    |
+    | REST /api
+    v
+Backend (FastAPI)
+  - Routers: auth, receipts, voice, ledger, advisor
+  - Services: reasoning, textract, transcribe, dynamodb, s3
+    |
+    +--> OCR / vision provider
+    +--> LLM reasoning (OpenAI/OpenRouter)
+    +--> AWS DynamoDB (ledger persistence)
+    +--> AWS S3 (receipt/audio objects)
 ```
 
----
+## ML and Reasoning Design
 
-## 🤖 GPT-4.1 Usage (The Right Way)
+### 1. Spec-Driven Reasoning
 
-### System Prompt = Policy
-```python
-"""You are FinGuru's Expense Reasoning Engine.
-You are NOT a chatbot. You are a constrained reasoning engine that:
-1. Analyzes expense data
-2. Applies Indian GST rules from the specification
-3. Produces structured JSON output
-4. Explains every decision"""
+Accounting and GST behavior is defined in YAML specs under backend/specs/accounting.yaml and consumed by the reasoning engine.
+
+Benefits:
+
+- business rules are inspectable and versionable,
+- category logic is consistent across requests,
+- policy updates do not require core pipeline rewrites.
+
+### 2. Structured LLM Contract
+
+When LLM reasoning is available, outputs are constrained by JSON schema (amount, category, confidence, rule_applied, gst_reasoning, explanation).
+
+Benefits:
+
+- deterministic response shape for downstream APIs,
+- reduced parsing fragility,
+- safer integrations with frontend and persistence layers.
+
+### 3. Safety via Human-in-the-Loop
+
+Entries below the configured confidence threshold are not blindly trusted and are flagged for confirmation.
+
+Benefits:
+
+- safer automation in finance workflows,
+- clearer decision boundaries between AI and user control,
+- lower risk of silent misclassification.
+
+### 4. Graceful Fallback Behavior
+
+If external LLM calls fail or quota is unavailable, the pipeline falls back to rule-based extraction/classification to preserve service continuity.
+
+Benefits:
+
+- resilient behavior under provider failures,
+- lower operational brittleness,
+- continued product usability.
+
+## Engineering Quality Signals
+
+- Clear modular backend: routers and services are separated by responsibility.
+- Typed request/response contracts with Pydantic models.
+- Config management through environment-driven settings.
+- Consistent API prefixing and proxy integration with frontend.
+- Runnable local stack for realistic end-to-end testing.
+
+## Current Stack
+
+- Backend: Python, FastAPI, Pydantic
+- Frontend: React, TypeScript, Vite, Tailwind
+- Storage/Infra: AWS DynamoDB, S3, Textract
+- AI: OpenAI-compatible client (OpenAI/OpenRouter), Whisper-based transcription path
+- Deployment artifacts: Procfile, render.yaml, vercel.json
+
+## Repository Structure
+
+```text
+Finguru/
+  backend/
+    main.py
+    config.py
+    models/
+    routers/
+    services/
+    specs/accounting.yaml
+  frontend/
+    src/
+    package.json
+    vite.config.ts
+  README.md
+  DEPLOYMENT.md
+  SETUP_GUIDE.md
 ```
 
-### JSON Schema Enforcement
-```python
-response_format={
-    "type": "json_schema",
-    "json_schema": {
-        "name": "expense_reasoning",
-        "strict": True,
-        "schema": {
-            "amount": {"type": "number"},
-            "category": {"type": "string", "enum": [...]},
-            "confidence": {"type": "number"},
-            "rule_applied": {"type": "string"},
-            "explanation": {"type": "string"}
-        }
-    }
-}
-```
+## API Surface (Representative)
 
-### Output Example
-```json
-{
-  "amount": 450,
-  "category": "food",
-  "confidence": 0.91,
-  "rule_applied": "Food services category matched via keywords: chai, restaurant",
-  "gst_reasoning": "5% GST applied per Indian GST rules for food services",
-  "explanation": "This expense is categorized as Food & Beverages based on the mention of 'chai'. GST of 5% is applicable."
-}
-```
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/receipts/upload
+- POST /api/voice/upload
+- POST /api/voice/upload-text
+- GET /api/ledger/entries
+- GET /api/ledger/summary
+- GET /api/advisor/insights
 
----
+## Local Run
 
-## 📋 Spec-Driven Development
+### Backend
 
-All accounting logic is defined in `specs/accounting.yaml`:
-
-```yaml
-expense_categories:
-  food:
-    display_name: "Food & Beverages"
-    gst_rate: 5
-    keywords: [chai, tea, coffee, lunch, dinner, restaurant]
-  
-  transport:
-    display_name: "Transportation"
-    gst_rate: 5
-    keywords: [auto, taxi, uber, ola, petrol, diesel]
-
-rules:
-  explanation_required: true
-  confidence_threshold: 0.85
-
-output_format: strict_json
-```
-
-**Why specs matter:**
-- Source of truth for all decisions
-- Auditable and version-controlled
-- GPT-4.1 references specs, doesn't invent rules
-- Easy to update without code changes
-
----
-
-## 🚀 Features
-
-### 1. Receipt Photo → Ledger Entry
-- Upload receipt image
-- Textract extracts text
-- GPT-4.1 reasons with specs
-- Shows "Why?" explanation
-- Confidence-based confirmation
-
-### 2. Voice Expense → Ledger Entry
-- Speak in Hinglish: "Aaj chai ke 120 rupaye kharch hue"
-- Local Whisper transcribes
-- GPT-4.1 extracts amount, category
-- Human confirms if uncertain
-
-### 3. "Why This Entry?" Button
-Every entry shows:
-- Which rule was applied
-- Why GST rate was chosen
-- Confidence score
-- Full reasoning chain
-
-### 4. CA Companion
-- Daily expense summary
-- Category breakdown
-- GST liability snapshot
-- AI-generated insights
-
----
-
-## 🔒 Human-in-the-Loop Design
-
-```
-┌─────────────────────────────────────────┐
-│           User Input                     │
-│    (Receipt / Voice / Text)             │
-└─────────────────┬───────────────────────┘
-                  ▼
-┌─────────────────────────────────────────┐
-│         GPT-4.1 Reasoning               │
-│    (Constrained, Spec-Driven)           │
-└─────────────────┬───────────────────────┘
-                  ▼
-┌─────────────────────────────────────────┐
-│      Confidence Check                    │
-│                                          │
-│   confidence >= 0.85?                    │
-│      YES → Auto-commit                   │
-│      NO  → Ask user to confirm           │
-└─────────────────────────────────────────┘
-```
-
----
-
-## 📦 Quick Start
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- OpenAI API key (for GPT-4.1)
-- AWS credentials (for Textract, S3, DynamoDB)
-
-### Backend Setup
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# Windows
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Add your OPENAI_API_KEY and AWS credentials
-
-# Run
 uvicorn main:app --reload --port 8000
 ```
 
-### Frontend Setup
+### Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Demo
-1. Open http://localhost:3000
-2. Upload a receipt → See structured extraction + explanation
-3. Record voice expense → See transcription + categorization
-4. Click "Why?" on any entry → See full reasoning
-5. Check CA tab → See insights
+Frontend runs on port 3000 and proxies /api to backend port 8000.
 
----
+## Suggested Resume Bullets (Use/Adapt)
 
+- Built a multimodal AI expense intelligence platform for Indian MSMEs using FastAPI, React, and AWS services.
+- Designed a spec-driven reasoning engine with schema-constrained LLM outputs and confidence-based human review to improve reliability in financial workflows.
+- Implemented resilient fallback logic from LLM inference to rule-based classification, preserving availability under model/API failure conditions.
+- Developed explainable GST categorization pipeline with auditable decision traces, supporting safer automation over black-box responses.
 
-## 📁 Project Structure
+## Roadmap (High-Impact Next Steps)
 
-```
-finguru/
-├── backend/
-│   ├── main.py              # FastAPI app
-│   ├── routers/
-│   │   ├── receipts.py      # Receipt upload API
-│   │   ├── voice.py         # Voice upload API
-│   │   ├── ledger.py        # Ledger CRUD
-│   │   └── advisor.py       # CA Companion
-│   ├── services/
-│   │   ├── reasoning.py     # GPT-4.1 reasoning engine
-│   │   ├── textract.py      # AWS Textract
-│   │   ├── transcribe.py    # Local Whisper
-│   │   └── dynamodb.py      # Database
-│   └── specs/
-│       └── accounting.yaml  # Accounting rules (source of truth)
-├── frontend/
-│   └── src/
-│       ├── pages/           # React pages
-│       └── components/      # UI components
-└── README.md
-```
+- Add automated evaluation harness with precision/recall for amount and category extraction.
+- Introduce integration tests for receipt and voice pipelines with golden fixtures.
+- Add observability (latency, fallback rate, low-confidence rate, error classes).
+- Implement role-based access and stronger auth/session hardening for production.
+- Extend advisor layer with trend anomaly detection and cashflow forecasting.
 
----
+## What Was Corrected From the Previous README
 
-## 🏆 Buildathon Alignment
-
-| Criteria | How FinGuru Addresses It |
-|----------|--------------------------|
-| **Meaningful GPT-4.1 use** | Constrained reasoning engine, not chatbot |
-| **Human-AI collaboration** | Confidence-based confirmation flow |
-| **Explainability** | "Why?" button on every entry |
-| **Real-world problem** | MSME accounting + GST compliance |
-| **Learning value** | Teaches responsible AI in regulated domains |
-
----
-
-## 👥 Team
-
-Built for OpenAI Academy × NxtWave Buildathon
-
----
-
-## 📄 License
-
-MIT License
+- Replaced unrelated content describing a different product and folder layout.
+- Removed unverifiable claims not grounded in this repository.
+- Aligned architecture, APIs, stack, and project structure with actual code.
+- Reframed project narrative to emphasize impact, system depth, and engineering quality expected in strong ML portfolios.
