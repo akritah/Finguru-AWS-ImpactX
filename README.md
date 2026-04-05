@@ -121,7 +121,6 @@ Add these assets for stronger credibility:
 - UI screenshots (Dashboard, Receipt Upload, Voice Upload, Ledger)
 - Workflow diagram image
 
-You can place them in a folder like docs/images and reference them here:
 
 ```markdown
 ![Dashboard](docs/images/dashboard.png)
@@ -182,11 +181,3 @@ flowchart LR
 - GET /api/ledger/summary
 - GET /api/advisor/insights
 
-## Why This README Is Corrected
-
-The earlier description mixed aspirational AWS architecture with current implementation details.
-This README keeps both:
-- What exists now in code
-- What is planned next
-
-That makes the project credible to reviewers, judges, and recruiters.
