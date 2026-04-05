@@ -48,6 +48,7 @@ class TextractService:
 If any field is not visible, use null. For amount, extract the total/grand total."""
 
         try:
+            print(f"🔍 Processing receipt with model: {self.model}")
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -66,10 +67,13 @@ If any field is not visible, use null. For amount, extract the total/grand total
             )
             
             result_text = response.choices[0].message.content
+            print(f"📄 Vision API response: {result_text[:200]}...")
+            
             # Extract JSON from response
             json_match = re.search(r'\{[\s\S]*\}', result_text)
             if json_match:
                 data = json.loads(json_match.group())
+                print(f"✅ Extracted data: amount={data.get('amount')}, vendor={data.get('vendor_name')}")
                 return ReceiptExtraction(
                     raw_text=data.get('raw_text', ''),
                     amount=float(data['amount']) if data.get('amount') else None,
@@ -79,8 +83,12 @@ If any field is not visible, use null. For amount, extract the total/grand total
                     items=data.get('items', []),
                     confidence=0.85
                 )
+            else:
+                print(f"⚠️ No JSON found in response: {result_text}")
         except Exception as e:
-            print(f"Vision API error: {e}")
+            print(f"❌ Vision API error: {e}")
+            import traceback
+            traceback.print_exc()
         
         return ReceiptExtraction(raw_text="Could not extract text", confidence=0.0)
     

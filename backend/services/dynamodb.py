@@ -28,7 +28,7 @@ class DynamoDBService:
     
     def get_entry(self, transaction_id: str) -> Optional[LedgerEntry]:
         """Get single ledger entry by ID"""
-        response = self.table.get_item(Key={'transaction_id': transaction_id})
+        response = self.table.get_item(Key={'ledger': transaction_id})
         item = response.get('Item')
         return self._from_dynamodb_item(item) if item else None
     
@@ -39,7 +39,7 @@ class DynamoDBService:
         expr_values = {f":{k}": self._convert_value(v) for k, v in updates.items()}
         
         response = self.table.update_item(
-            Key={'transaction_id': transaction_id},
+            Key={'ledger': transaction_id},
             UpdateExpression=update_expr,
             ExpressionAttributeNames=expr_names,
             ExpressionAttributeValues=expr_values,
@@ -117,7 +117,7 @@ class DynamoDBService:
     def delete_entry(self, transaction_id: str) -> bool:
         """Delete ledger entry"""
         try:
-            self.table.delete_item(Key={'transaction_id': transaction_id})
+            self.table.delete_item(Key={'ledger': transaction_id})
             return True
         except Exception:
             return False
@@ -125,6 +125,8 @@ class DynamoDBService:
     def _to_dynamodb_item(self, entry: LedgerEntry) -> dict:
         """Convert LedgerEntry to DynamoDB item"""
         item = entry.model_dump()
+        # Add 'ledger' key for DynamoDB partition key (using transaction_id as value)
+        item['ledger'] = item['transaction_id']
         # Convert floats to Decimal for DynamoDB
         for key, value in item.items():
             if isinstance(value, float):
@@ -135,11 +137,14 @@ class DynamoDBService:
         """Convert DynamoDB item to LedgerEntry"""
         if item is None:
             return None
+        # Remove the 'ledger' key as it's not part of LedgerEntry schema
+        item_copy = item.copy()
+        item_copy.pop('ledger', None)
         # Convert Decimals back to floats
-        for key, value in item.items():
+        for key, value in item_copy.items():
             if isinstance(value, Decimal):
-                item[key] = float(value)
-        return LedgerEntry(**item)
+                item_copy[key] = float(value)
+        return LedgerEntry(**item_copy)
     
     def _convert_value(self, value):
         """Convert Python value to DynamoDB compatible"""

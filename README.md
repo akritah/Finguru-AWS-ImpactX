@@ -1,183 +1,192 @@
-# FinGuru: AI Expense Copilot for Indian MSMEs
+# FinGuru - Multilingual Agentic AI Tax Assistant
 
-FinGuru is a production-style ML system that converts unstructured expense inputs (receipt photos + Hinglish voice notes) into auditable ledger entries with GST reasoning and confidence-gated human review.
+A cloud-native AI system that converts receipts and voice inputs into structured financial insights, CA-style advice, and compliance reminders.
 
-It is intentionally designed as a constrained reasoning pipeline, not a free-form chatbot.
+Clean, confident, no fluff.
 
-## Recruiter Snapshot (10-Second Read)
+## 2) Problem Statement
 
-- Built an end-to-end AI finance workflow with FastAPI + React + AWS services.
-- Implemented multimodal ingestion: receipt OCR and voice transcription.
-- Added spec-driven classification with schema-constrained LLM outputs.
-- Engineered confidence-based human-in-the-loop controls for safer automation.
-- Exposed explainable outputs: category decision, GST logic, and confirmation triggers.
+Small businesses manage finances through scattered receipts, photos, and voice notes.
+Even when data exists, they still lack clarity on expenses, GST impact, and compliance requirements.
 
-## Why This Project Matters
+This leads to:
+- Misclassified expenses
+- Missed deadlines
+- Avoidable penalties
+- Poor financial decisions
 
-Small businesses often track expenses in ad-hoc ways, causing:
+The core challenge is not data collection. It is understanding and guidance.
 
-- poor bookkeeping quality,
-- delayed GST visibility,
-- high manual effort to reconcile receipts and voice notes.
+## 3) Solution Overview
 
-FinGuru addresses this with a system that turns raw evidence into structured accounting entries while preserving explainability and control.
+FinGuru organizes unstructured financial data and transforms it into clear, actionable insights.
 
-## Product Capabilities
+It:
+- Extracts data from receipts and voice inputs
+- Classifies expenses and estimates GST impact
+- Generates CA-style explanations and guidance
+- Flags entries that need confirmation
+- Supports Hinglish and Hindi voice inputs in a unified reasoning pipeline
 
-- Receipt upload pipeline (image -> OCR -> structured expense entry)
-- Voice pipeline for Hinglish expense logging (audio/text -> parsed entry)
-- Explainability fields for each decision (rule applied + GST reasoning)
-- Confidence thresholding with explicit confirmation flow
-- Ledger APIs for retrieval, summary, category analytics, and corrections
-- Advisor endpoint for higher-level spend insights
+## 4) System Architecture
 
-## Technical Architecture
+FinGuru follows a layered architecture:
 
-```text
-Frontend (React + Vite)
-    |
-    | REST /api
-    v
-Backend (FastAPI)
-  - Routers: auth, receipts, voice, ledger, advisor
-  - Services: reasoning, textract, transcribe, dynamodb, s3
-    |
-    +--> OCR / vision provider
-    +--> LLM reasoning (OpenAI/OpenRouter)
-    +--> AWS DynamoDB (ledger persistence)
-    +--> AWS S3 (receipt/audio objects)
+1. Input Layer
+- Receipt images and voice/audio inputs
+
+2. Storage Layer
+- Amazon S3 for uploaded files (audio and asset storage)
+
+3. Perception Layer
+- Receipt OCR: Vision model pipeline (current implementation)
+- Speech-to-text: Whisper API pipeline (current implementation)
+- AWS-native equivalents for this layer: Amazon Textract + Amazon Transcribe
+
+4. Reasoning Layer (Agentic AI)
+- Expense classification
+- GST inference
+- Confidence scoring
+- Advice and explanation generation
+- Human-in-the-loop trigger for low-confidence outputs
+
+5. Data Layer
+- Amazon DynamoDB for structured ledger records and summaries
+
+6. Language Layer
+- Current: Hinglish/Hindi input with English-centered reasoning output pipeline
+- Planned AWS-native extension: Amazon Translate for full bidirectional multilingual translation
+
+## 5) Agentic AI Workflow
+
+FinGuru uses a step-based reasoning workflow that mimics a Chartered Accountant:
+
+1. Understand the expense context
+2. Classify category from accounting specification
+3. Determine GST applicability and rate
+4. Mark confidence and flag uncertain items
+5. Compare against historical records (via ledger views)
+6. Generate advice and action suggestions
+7. Provide explanation trace for auditability
+
+## 6) Multilingual Support
+
+Current multilingual flow:
+
+User Input (Hindi/Hinglish voice or text) -> Transcription/Parsing -> AI Reasoning -> Structured output + explanation
+
+Extended pipeline (roadmap):
+
+User Input -> Translate to English -> AI Reasoning -> Translate back
+
+This keeps reasoning consistent while enabling broader language accessibility.
+
+## 7) Tech Stack
+
+- FastAPI (Python) - backend APIs
+- React + TypeScript + Vite - frontend
+- AWS S3 - file/object storage
+- AWS DynamoDB - structured ledger storage
+- OpenRouter/OpenAI LLM - reasoning and explanations
+- Whisper API - speech-to-text
+- Vision model API - receipt OCR extraction
+- Render/Vercel deployment configs included
+
+Notes on correctness:
+- The current codebase is API-server based (FastAPI), not AWS Lambda-first.
+- OCR/STT currently run through model APIs; Textract/Transcribe are natural AWS-native swaps.
+
+## 8) Cost Optimization
+
+- All major operations are user-triggered
+- No always-on batch or background processing loops
+- Minimal API calls per workflow step
+- Graceful fallback path in reasoning service
+- Practical free-tier-conscious development setup
+
+## 9) Features
+
+- Receipt to structured expense conversion
+- Voice-based expense input
+- GST-aware categorization and calculations
+- CA-style explanations per entry
+- Confidence-based confirmation flow
+- Ledger summaries and category analytics
+- Agentic reasoning workflow
+
+## 10) Demo / Screenshots
+
+Add these assets for stronger credibility:
+
+- UI screenshots (Dashboard, Receipt Upload, Voice Upload, Ledger)
+- Workflow diagram image
+
+You can place them in a folder like docs/images and reference them here:
+
+```markdown
+![Dashboard](docs/images/dashboard.png)
+![Receipt Upload](docs/images/receipt-upload.png)
+![Workflow](docs/images/workflow.png)
 ```
 
-## ML and Reasoning Design
+### Workflow Diagram (Mermaid)
 
-### 1. Spec-Driven Reasoning
-
-Accounting and GST behavior is defined in YAML specs under backend/specs/accounting.yaml and consumed by the reasoning engine.
-
-Benefits:
-
-- business rules are inspectable and versionable,
-- category logic is consistent across requests,
-- policy updates do not require core pipeline rewrites.
-
-### 2. Structured LLM Contract
-
-When LLM reasoning is available, outputs are constrained by JSON schema (amount, category, confidence, rule_applied, gst_reasoning, explanation).
-
-Benefits:
-
-- deterministic response shape for downstream APIs,
-- reduced parsing fragility,
-- safer integrations with frontend and persistence layers.
-
-### 3. Safety via Human-in-the-Loop
-
-Entries below the configured confidence threshold are not blindly trusted and are flagged for confirmation.
-
-Benefits:
-
-- safer automation in finance workflows,
-- clearer decision boundaries between AI and user control,
-- lower risk of silent misclassification.
-
-### 4. Graceful Fallback Behavior
-
-If external LLM calls fail or quota is unavailable, the pipeline falls back to rule-based extraction/classification to preserve service continuity.
-
-Benefits:
-
-- resilient behavior under provider failures,
-- lower operational brittleness,
-- continued product usability.
-
-## Engineering Quality Signals
-
-- Clear modular backend: routers and services are separated by responsibility.
-- Typed request/response contracts with Pydantic models.
-- Config management through environment-driven settings.
-- Consistent API prefixing and proxy integration with frontend.
-- Runnable local stack for realistic end-to-end testing.
-
-## Current Stack
-
-- Backend: Python, FastAPI, Pydantic
-- Frontend: React, TypeScript, Vite, Tailwind
-- Storage/Infra: AWS DynamoDB, S3, Textract
-- AI: OpenAI-compatible client (OpenAI/OpenRouter), Whisper-based transcription path
-- Deployment artifacts: Procfile, render.yaml, vercel.json
-
-## Repository Structure
-
-```text
-Finguru/
-  backend/
-    main.py
-    config.py
-    models/
-    routers/
-    services/
-    specs/accounting.yaml
-  frontend/
-    src/
-    package.json
-    vite.config.ts
-  README.md
-  DEPLOYMENT.md
-  SETUP_GUIDE.md
+```mermaid
+flowchart LR
+    A[Receipt/Voice Input] --> B[S3 Upload]
+    A --> C[Perception Layer]
+    C --> C1[OCR Pipeline]
+    C --> C2[Speech-to-Text Pipeline]
+    C1 --> D[Reasoning Engine]
+    C2 --> D[Reasoning Engine]
+    D --> E[GST + Category + Explanation]
+    E --> F[DynamoDB Ledger]
+    F --> G[Dashboard + Advisor Insights]
+    D --> H{Confidence < Threshold?}
+    H -- Yes --> I[User Confirmation]
+    H -- No --> F
 ```
 
-## API Surface (Representative)
+## 11) How to Run
+
+1. Clone the repository
+2. Backend setup
+- cd backend
+- pip install -r requirements.txt
+- configure .env with AWS and API keys
+- run: uvicorn main:app --reload --port 8000
+3. Frontend setup
+- cd frontend
+- npm install
+- npm run dev
+4. Open frontend in browser and start uploading receipts/voice
+
+## 12) Future Scope
+
+- Full AWS-native perception pipeline (Textract/Transcribe/Translate)
+- Advanced compliance tracking and reminders
+- Multi-agent orchestration for specialized accounting tasks
+- Financial forecasting and anomaly detection
+- Integration with accounting platforms and ERP tools
+
+## API Surface (Current)
 
 - POST /api/auth/register
 - POST /api/auth/login
 - POST /api/receipts/upload
+- POST /api/receipts/confirm
 - POST /api/voice/upload
 - POST /api/voice/upload-text
+- POST /api/voice/confirm
 - GET /api/ledger/entries
 - GET /api/ledger/summary
 - GET /api/advisor/insights
 
-## Local Run
+## Why This README Is Corrected
 
-### Backend
+The earlier description mixed aspirational AWS architecture with current implementation details.
+This README keeps both:
+- What exists now in code
+- What is planned next
 
-```bash
-cd backend
-python -m venv venv
-# Windows
-venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs on port 3000 and proxies /api to backend port 8000.
-
-## Suggested Resume Bullets (Use/Adapt)
-
-- Built a multimodal AI expense intelligence platform for Indian MSMEs using FastAPI, React, and AWS services.
-- Designed a spec-driven reasoning engine with schema-constrained LLM outputs and confidence-based human review to improve reliability in financial workflows.
-- Implemented resilient fallback logic from LLM inference to rule-based classification, preserving availability under model/API failure conditions.
-- Developed explainable GST categorization pipeline with auditable decision traces, supporting safer automation over black-box responses.
-
-## Roadmap (High-Impact Next Steps)
-
-- Add automated evaluation harness with precision/recall for amount and category extraction.
-- Introduce integration tests for receipt and voice pipelines with golden fixtures.
-- Add observability (latency, fallback rate, low-confidence rate, error classes).
-- Implement role-based access and stronger auth/session hardening for production.
-- Extend advisor layer with trend anomaly detection and cashflow forecasting.
-
-## What Was Corrected From the Previous README
-
-- Replaced unrelated content describing a different product and folder layout.
-- Removed unverifiable claims not grounded in this repository.
-- Aligned architecture, APIs, stack, and project structure with actual code.
-- Reframed project narrative to emphasize impact, system depth, and engineering quality expected in strong ML portfolios.
+That makes the project credible to reviewers, judges, and recruiters.
